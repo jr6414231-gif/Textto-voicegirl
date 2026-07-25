@@ -1,8 +1,7 @@
-import { MsEdgeTTS, OUTPUT_FORMAT } from "npm:msedge-tts";
-
 Deno.serve(async (req) => {
   const url = new URL(req.url);
 
+  // CORS headers
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -15,7 +14,7 @@ Deno.serve(async (req) => {
 
   if (url.pathname === "/api/tts") {
     const text = url.searchParams.get("text");
-    const voice = url.searchParams.get("voice") || "ur-PK-UzmaNeural";
+    const lang = url.searchParams.get("lang") || "ur";
 
     if (!text) {
       return new Response(
@@ -25,20 +24,23 @@ Deno.serve(async (req) => {
     }
 
     try {
-      const tts = new MsEdgeTTS();
-      await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
+      // Direct & Reliable Neural TTS Endpoint
+      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
+        text
+      )}&tl=${encodeURIComponent(lang)}&client=tw-ob`;
 
-      // In-Memory Stream جنریٹ کرنا (ڈسک پر فائل سیو نہیں ہوگی)
-      const readableStream = tts.toStream(text);
-      
-      const chunks = [];
-      for await (const chunk of readableStream) {
-        chunks.push(chunk);
+      const audioResponse = await fetch(ttsUrl, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      });
+
+      if (!audioResponse.ok) {
+        throw new Error("Failed to fetch audio stream");
       }
-      
-      const audioBuffer = new Uint8Array(
-        chunks.reduce((acc, chunk) => [...acc, ...new Uint8Array(chunk)], [])
-      );
+
+      const audioBuffer = await audioResponse.arrayBuffer();
 
       return new Response(audioBuffer, {
         headers: {
@@ -51,7 +53,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           status: "error",
-          message: "Failed to generate neural voice.",
+          message: "Voice generation failed.",
           details: error.message,
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -62,7 +64,7 @@ Deno.serve(async (req) => {
   return new Response(
     JSON.stringify({
       status: "success",
-      message: "Edge Neural Voice TTS API is running!",
+      message: "Text-to-Voice API is active!",
       usage: "/api/tts?text=سلام",
     }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
