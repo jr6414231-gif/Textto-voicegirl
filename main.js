@@ -1,23 +1,21 @@
 Deno.serve(async (req) => {
   const url = new URL(req.url);
 
-  // Cross-Origin Resource Sharing (CORS) headers تاکہ آپ اسے کسی بھی ویب سائٹ میں استعمال کر سکیں
+  // CORS headers
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "*",
   };
 
-  // OPTIONS درخواستوں کا جواب (Preflight requests)
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // صرف /api/tts کے لیے ریکویسٹ کو سنیں
   if (url.pathname === "/api/tts") {
     const text = url.searchParams.get("text");
-    // بائی ڈیفالٹ فی میل وائس رکھی گئی ہے (اگر چاہیں تو سرچ پیرامیٹر سے وائس بھی بدل سکتے ہیں)
-    const voice = url.searchParams.get("voice") || "ur-PK-UzmaNeural";
+    // زبان کی سیٹنگ (بائی ڈیفالٹ اردو 'ur'، اگر انگلش چاہیے تو 'en' پاس کر سکتے ہیں)
+    const lang = url.searchParams.get("lang") || "ur";
 
     if (!text) {
       return new Response(
@@ -27,13 +25,12 @@ Deno.serve(async (req) => {
     }
 
     try {
-      // StreamElements API کا یو آر ایل
-      const streamElementsUrl = `https://api.streamelements.com/kappa/v2/speech?voice=${encodeURIComponent(
-        voice
-      )}&text=${encodeURIComponent(text)}`;
+      // Google Translate TTS URL (Reliable & No 401 Errors)
+      const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
+        text
+      )}&tl=${encodeURIComponent(lang)}&client=tw-ob`;
 
-      // User-Agent ہیڈر کے ساتھ درخواست بھیجنا
-      const audioResponse = await fetch(streamElementsUrl, {
+      const audioResponse = await fetch(googleTtsUrl, {
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -41,10 +38,9 @@ Deno.serve(async (req) => {
       });
 
       if (!audioResponse.ok) {
-        throw new Error(`StreamElements returned status: ${audioResponse.status}`);
+        throw new Error(`TTS Service returned status: ${audioResponse.status}`);
       }
 
-      // جنریٹڈ آڈیو واپس کسٹمر کو بھیجیں
       const audioBuffer = await audioResponse.arrayBuffer();
       return new Response(audioBuffer, {
         headers: {
@@ -57,7 +53,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           status: "error",
-          message: "Failed to generate neural female voice.",
+          message: "Failed to generate voice.",
           details: error.message,
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -65,12 +61,11 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ہوم پیج یا کسی اور روٹ کے لیے ڈیفالٹ میسج
   return new Response(
     JSON.stringify({
       status: "success",
       message: "Text-to-Speech API is running successfully!",
-      usage: "/api/tts?text=Hello",
+      usage: "/api/tts?text=سلام&lang=ur",
     }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
