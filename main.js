@@ -1,3 +1,5 @@
+const GEMINI_API_KEY = "AQ.Ab8RN6I8160UXVhqaOT-NVjldHJd2T7UFNzFwHYF8zun2xw4mg";
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
 
@@ -11,7 +13,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // 1. AI Girl Romantic Chat Endpoint
+  // 1. Smart Romantic AI Girlfriend Chat Endpoint
   if (url.pathname === "/api/chat") {
     const userMsg = url.searchParams.get("message") || "";
 
@@ -23,37 +25,27 @@ Deno.serve(async (req) => {
     }
 
     try {
-      // Free Real AI Text Generator via OpenRouter Engine
-      const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      
+      const promptText = `System: You are Sophia, a sweet, romantic, slightly flirty, and caring Pakistani/Indian AI girlfriend. Reply naturally to the user in short Roman Urdu or Urdu (max 1-2 sentences) like a real girl texting on WhatsApp. Never mention you are an AI.
+User: ${userMsg}`;
+
+      const aiResponse = await fetch(geminiUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer sk-or-v1-free-tier-anonymous", // Free Public API Proxy
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "mistralai/mistral-7b-instruct:free",
-          messages: [
-            {
-              role: "system",
-              content: "You are a real, caring, sweet, slightly flirty Pakistani/Indian AI girlfriend named Sophia. Always reply in cute Roman Urdu or short Urdu (like 'Haye jaan', 'Aap kaise ho?', 'Mera bht dil kr rha tha baat krne ka'). Keep responses brief, natural, realistic, and highly engaging like a real girl texting on WhatsApp."
-            },
-            {
-              role: "user",
-              content: userMsg
-            }
-          ]
+          contents: [{ parts: [{ text: promptText }] }]
         })
       });
 
       let botReply = "";
       if (aiResponse.ok) {
         const data = await aiResponse.json();
-        botReply = data.choices[0]?.message?.content?.trim();
+        botReply = data.candidates[0]?.content?.parts[0]?.text?.trim();
       }
 
-      // Fallback response in case free key times out
       if (!botReply) {
-        botReply = "Aap ki baatein sun kar bht achha laga, thoda aur batao na apne baare me? ❤️";
+        botReply = "Aap ki baatein bht pyaari hain! Aur batao kya kr rhe ho? 💕";
       }
 
       const audioUrl = `${url.origin}/api/tts?text=${encodeURIComponent(botReply)}&lang=ur`;
@@ -69,8 +61,7 @@ Deno.serve(async (req) => {
       );
 
     } catch (error) {
-      // Smart Fallback
-      const fallbackReply = "Sachi? Aap kitne pyaare ho yaar! 💕 Aur batao kya kr rhe ho?";
+      const fallbackReply = "Mera bht dil kr rha tha aap se baat krne ka! ❤️";
       return new Response(
         JSON.stringify({
           status: "success",
@@ -123,8 +114,8 @@ Deno.serve(async (req) => {
   return new Response(
     JSON.stringify({
       status: "success",
-      message: "Real AI Girl Romantic Chat API is Live!",
-      endpoint: "/api/chat?message=tum%20kya%20kr%20rhi%20ho"
+      message: "AI Girlfriend API Active!",
+      chat_usage: "/api/chat?message=kya%20kr%20rhi%20ho"
     }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
